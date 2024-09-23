@@ -1,0 +1,344 @@
+*****MongoBD database*****
+view databases --> show dbs;
+
+create a new or switch database --> use dbName
+
+view current database --> db
+
+delete database --> db.dropDatabase()
+
+*****MongoBD Collection***** 
+
+show Collection --> show Collection
+
+create collection name avi --> db.createCollection('avi')
+
+drop collection --> db.avi.drop()
+
+*****Mongodb Rows*****
+(comments is a collection name)
+
+show all rows from collection --> db.comments.find()
+(use pretty)
+
+Insert Rows --> db.comments.insert({
+    "name":"Avishkar",
+    "course":"Web devlopment"
+})
+use insertOne because insert is deprecated
+
+Insert many --> db.comments.insertMany([{},{},{}]) 
+
+***** Search in MongoBD *****
+db.comments.find('name':'Avishkar')
+
+first row --> db.comments.findOne()
+
+Limit the rows --> db.comments.find().limit(2)
+
+Count the number of rows --> db.comments.find().count()
+
+sort -->db.comments.find().sort({"id":1})
+        db.comments.find().sort({name:1}).pretty()
+        (use -1 for descending)
+
+***** Update rows *****
+db.comments.update({name:'Avishkar'},
+{$set:{
+    'course':"MERN Stack",
+    'fees':50000,
+    'age':22
+}
+})
+
+(update is deprecated) use updateOne
+
+*upserted-->create a new object if it not present
+db.comments.update({name:'Abhay'},
+{$set:{
+    'course':"MERN Stack",
+    'fees':50000,
+    'age':22
+}
+},{upsert:true})
+
+*** Mongodb increment***
+db.comments.update({name:'Abhay'},
+{$inc:{
+    'fees':50000,
+}})
+
+*** Mongodb rename***
+db.comments.update({name:'Abhay'},
+{$rename:{
+    fees:"course fee",
+}})
+
+***** Delete Rows*****
+db.comments.remove({name:"Abhay"})
+( Use deleteOne, deleteMany, findOneAndDelete, or bulkWrite.)
+
+***** Less than and greter than
+db.comments.find({fees:{$lt:50000}})
+db.comments.find({fees:{$gt:50000}})
+
+********* Aggrigation Pipline ************
+
+$match -> matching the elements
+$count
+$group--> grouping
+
+//find the average based on age
+[
+  {
+    $group: {
+      _id: "$gender",
+      averageAge:{
+        $avg:"$age"
+      }
+    }
+  }
+]
+
+// top 2 most favorite fruit
+[
+  {
+    $group: {
+      _id: "$favoriteFruit",
+      count:{
+        $sum: 1
+      }
+    },
+  },
+  {
+    $sort: {
+      count: -1 
+    }
+  },
+  {
+    $limit: 2
+  }
+]
+
+//Find the total number of male and female
+[
+  {
+    $group: {
+      _id: "$gender",
+      GenderCount:{
+        $sum: 1
+      }
+    }
+  }
+]
+
+// Which country has highest number of register user
+[
+  {
+    $group: {
+      _id: "$company.location.country",
+      countUser:{
+        $sum: 1
+      }
+    }
+  },
+  {
+    $sort: {
+  		countUser: -1
+    }
+  }
+]
+
+//List all unique eye colors present in the collection
+[
+  {
+    $group: {
+      _id: "$eyeColor",
+    }
+  }
+]
+
+//What is the average number of tag per user
+
+1--> [
+ [
+  {
+    $unwind: "$tags"
+  },
+  {
+    $group: {
+      _id: "$_id",
+      numberOfTags:{
+        $sum: 1
+      }
+    }
+  },
+  {
+    $group: {
+      _id: null,
+      avgNumberOfTags:{
+        $avg: "$numberOfTags"
+      }
+    }
+  },
+  {
+    $project: {
+      avgNumberOfTags:{
+        $ceil:"$avgNumberOfTags"
+      }
+    }
+  }
+]
+
+
+2--> [
+  {
+    $addFields: {
+      noOfTags:{
+        $size:{$ifNull:["$tags",[]]}
+      } 
+    }
+  },
+  {
+    $group: {
+      _id: null,
+      averageOfTags:{
+        $avg: "$noOfTags"
+      }
+    }
+  }
+]
+
+******$match******
+//How many users have 'enim' as one of their tag
+[
+  {
+    $match: {
+    	tags:"enim"
+    }
+  },
+  {
+    $count: 'noOfEnim'
+  }
+]
+
+********Project********
+//What are the names and age of users who are inactive and have a 'velit' as a tag
+[
+  {
+    $match:{
+      isActive: false, tags:'velit'
+    }
+  },
+  {
+    $project: {
+      name:1,
+      age:1
+    }
+  }
+]
+
+//How many user phone number starting with +1(940)
+[
+  {
+    $match: {
+      "company.phone": /^\+1 \(940\)/
+    }
+  },
+  {
+    $count: 'TotalPhone'
+  }
+]
+
+//Who has register most recently
+
+[
+  {
+    $sort: {
+      registered:-1
+    }
+  },
+  {
+    $limit: 5
+  },
+  {
+    $project: {
+      name:1,
+      registered:1
+    }
+  }
+]
+
+//Categorize users by their favorite fruit 
+[
+  {
+    $group: {
+      _id: "$favoriteFruit",
+      user:{
+        $push:"$name"
+      }
+    }
+  }
+]
+
+//How many users have a 'ad' as the second tag in their list of tag
+
+[
+  {
+    $match: {
+    	"tags.1":"ad"
+    }
+  },
+  {
+    $count: 'SecondTagAd'
+  }
+]
+
+//Find user who have both 'enim ' and 'id' as their tag
+***$all -- All the criteria full fill ***
+
+[
+  {
+    $match: {
+      tags:{$all:['enim','id']}
+    }
+  }
+]
+
+
+// List all company located in USA with their corresponding user count
+
+[
+  {
+    $match: {
+      "company.location.country":"USA"
+    }
+  },
+  {
+    $group: {
+      _id: "$company.title",
+      userCount:{
+        $sum: 1
+      }
+    }
+  }
+]
+
+************Lookup***************
+[
+  {
+    $lookup: {
+      from: "authers",
+      localField: "author_id",
+      foreignField: "_id",
+      as: "auther_details"
+    }
+  },
+  {
+    $addFields: {
+      auther_details:{
+        $arrayElemAt:["$auther_details",0]
+      }
+    }
+  }
+]
